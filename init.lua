@@ -91,7 +91,7 @@ vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
 -- Set to true if you have a Nerd Font installed and selected in the terminal
-vim.g.have_nerd_font = false
+vim.g.have_nerd_font = true
 
 -- [[ Setting options ]]
 -- See `:help vim.o`
@@ -233,6 +233,10 @@ end
 ---@type vim.Option
 local rtp = vim.opt.rtp
 rtp:prepend(lazypath)
+
+-- CUSTOM
+vim.keymap.set('n', ';', ':')
+vim.keymap.set('n', '<leader><tab>', '<C-^>')
 
 -- [[ Configure and install plugins ]]
 --
@@ -435,7 +439,9 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>sd', builtin.diagnostics, { desc = '[S]earch [D]iagnostics' })
       vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = '[S]earch [R]esume' })
       vim.keymap.set('n', '<leader>s.', builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
-      vim.keymap.set('n', '<leader><leader>', builtin.buffers, { desc = '[ ] Find existing buffers' })
+      vim.keymap.set('n', '<leader><leader>', function()
+        builtin.buffers { sort_mru = true, ignore_current_buffer = true }
+      end, { desc = '[ ] Find existing buffers' })
 
       -- Slightly advanced example of overriding default behavior and theme
       vim.keymap.set('n', '<leader>/', function()
@@ -963,12 +969,119 @@ require('lazy').setup({
     --    - Show your current context: https://github.com/nvim-treesitter/nvim-treesitter-context
     --    - Treesitter + textobjects: https://github.com/nvim-treesitter/nvim-treesitter-textobjects
   },
+  {
+    'mrcjkb/rustaceanvim',
+    version = '^4', -- Recommended
+    ft = { 'rust' },
+  },
+
+  {
+    'mfussenegger/nvim-dap',
+  },
+
+  {
+    'romgrk/barbar.nvim',
+    dependencies = {
+      'lewis6991/gitsigns.nvim', -- OPTIONAL: for git status
+      'nvim-tree/nvim-web-devicons', -- OPTIONAL: for file icons
+    },
+    init = function()
+      vim.g.barbar_auto_setup = false
+      local map = vim.api.nvim_set_keymap
+      local opts = { noremap = true, silent = true }
+
+      -- Move to previous/next
+      map('n', '<A-,>', '<Cmd>BufferPrevious<CR>', opts)
+      map('n', '<A-.>', '<Cmd>BufferNext<CR>', opts)
+      -- Re-order to previous/next
+      map('n', '<A-<>', '<Cmd>BufferMovePrevious<CR>', opts)
+      map('n', '<A->>', '<Cmd>BufferMoveNext<CR>', opts)
+      -- Goto buffer in position...
+      map('n', '<A-1>', '<Cmd>BufferGoto 1<CR>', opts)
+      map('n', '<A-2>', '<Cmd>BufferGoto 2<CR>', opts)
+      map('n', '<A-3>', '<Cmd>BufferGoto 3<CR>', opts)
+      map('n', '<A-4>', '<Cmd>BufferGoto 4<CR>', opts)
+      map('n', '<A-5>', '<Cmd>BufferGoto 5<CR>', opts)
+      map('n', '<A-6>', '<Cmd>BufferGoto 6<CR>', opts)
+      map('n', '<A-7>', '<Cmd>BufferGoto 7<CR>', opts)
+      map('n', '<A-8>', '<Cmd>BufferGoto 8<CR>', opts)
+      map('n', '<A-9>', '<Cmd>BufferGoto 9<CR>', opts)
+      map('n', '<A-0>', '<Cmd>BufferLast<CR>', opts)
+      -- Pin/unpin buffer
+      map('n', '<A-p>', '<Cmd>BufferPin<CR>', opts)
+      -- Close buffer
+      map('n', '<A-c>', '<Cmd>BufferClose<CR>', opts)
+      -- Wipeout buffer
+      --                 :BufferWipeout
+      -- Close commands
+      --                 :BufferCloseAllButCurrent
+      --                 :BufferCloseAllButPinned
+      --                 :BufferCloseAllButCurrentOrPinned
+      --                 :BufferCloseBuffersLeft
+      --                 :BufferCloseBuffersRight
+      -- Magic buffer-picking mode
+      map('n', '<C-p>', '<Cmd>BufferPick<CR>', opts)
+      -- Sort automatically by...
+      map('n', '<Space>bb', '<Cmd>BufferOrderByBufferNumber<CR>', opts)
+      map('n', '<Space>bd', '<Cmd>BufferOrderByDirectory<CR>', opts)
+      map('n', '<Space>bl', '<Cmd>BufferOrderByLanguage<CR>', opts)
+      map('n', '<Space>bw', '<Cmd>BufferOrderByWindowNumber<CR>', opts)
+
+      -- Other:
+      -- :BarbarEnable - enables barbar (enabled by default)
+      -- :BarbarDisable - very bad command, should never be used
+    end,
+    opts = {
+      -- lazy.nvim will automatically call setup for you. put your options here, anything missing will use the default:
+      -- animation = true,
+      -- insert_at_start = true,
+      clickable = true,
+      closable = true,
+      -- …etc.
+    },
+    version = '^1.0.0', -- optional: only update when a new 1.x version is released
+  },
+
+  {
+    'ojroques/nvim-osc52',
+    config = function()
+      vim.keymap.set('n', '<leader>c', require('osc52').copy_operator, { expr = true })
+      vim.keymap.set('n', '<leader>cc', '<leader>c_', { remap = true })
+      vim.keymap.set('v', '<leader>c', require('osc52').copy_visual)
+    end,
+  },
+
+  {
+    'nvim-neo-tree/neo-tree.nvim',
+    branch = 'v3.x',
+    dependencies = {
+      'nvim-lua/plenary.nvim',
+      'nvim-tree/nvim-web-devicons', -- not strictly required, but recommended
+      'MunifTanjim/nui.nvim',
+      -- "3rd/image.nvim", -- Optional image support in preview window: See `# Preview Mode` for more information
+    },
+    config = function()
+      vim.keymap.set('n', '<leader>-', '<Cmd>Neotree toggle<CR>')
+    end,
+  },
+
+  {
+    'windwp/nvim-autopairs',
+    -- Optional dependency
+    dependencies = { 'hrsh7th/nvim-cmp' },
+    config = function()
+      require('nvim-autopairs').setup {}
+      -- If you want to automatically add `(` after selecting a function or method
+      local cmp_autopairs = require 'nvim-autopairs.completion.cmp'
+      local cmp = require 'cmp'
+      cmp.event:on('confirm_done', cmp_autopairs.on_confirm_done())
+    end,
+  },
 
   -- The following comments only work if you have downloaded the kickstart repo, not just copy pasted the
   -- init.lua. If you want these files, they are in the repository, so you can just download them and
   -- place them in the correct locations.
 
-  -- NOTE: Next step on your Neovim journey: Add/Configure additional plugins for Kickstart
   --
   --  Here are some example plugins that I've included in the Kickstart repository.
   --  Uncomment any of the lines below to enable them (you will need to restart nvim).
@@ -984,7 +1097,7 @@ require('lazy').setup({
   --    This is the easiest way to modularize your config.
   --
   --  Uncomment the following line and add your plugins to `lua/custom/plugins/*.lua` to get going.
-  -- { import = 'custom.plugins' },
+  { import = 'custom.plugins' },
   --
   -- For additional information with loading, sourcing and examples see `:help lazy.nvim-🔌-plugin-spec`
   -- Or use telescope!
