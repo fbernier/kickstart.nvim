@@ -678,7 +678,7 @@ require('lazy').setup({
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
       local servers = {
         -- clangd = {},
-        -- gopls = {},
+        gopls = {},
         -- pyright = {},
         -- rust_analyzer = {},
         -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
@@ -1062,6 +1062,20 @@ require('lazy').setup({
     },
     config = function()
       vim.keymap.set('n', '<leader>-', '<Cmd>Neotree toggle<CR>')
+
+      require('neo-tree').setup {
+        event_handlers = {
+          {
+            event = 'file_opened',
+            handler = function()
+              -- auto close
+              -- vimc.cmd("Neotree close")
+              -- OR
+              require('neo-tree.command').execute { action = 'close' }
+            end,
+          },
+        },
+      }
     end,
   },
 
