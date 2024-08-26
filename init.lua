@@ -219,6 +219,27 @@ vim.opt.rtp:prepend(lazypath)
 vim.keymap.set('n', ';', ':')
 vim.keymap.set('n', '<leader><tab>', '<C-^>')
 
+local function paste()
+  return {
+    vim.fn.split(vim.fn.getreg '', '\n'),
+    vim.fn.getregtype '',
+  }
+end
+
+if os.getenv 'SSH_TTY' ~= nil then
+  vim.g.clipboard = {
+    name = 'OSC 52',
+    copy = {
+      ['+'] = require('vim.ui.clipboard.osc52').copy '+',
+      ['*'] = require('vim.ui.clipboard.osc52').copy '*',
+    },
+    paste = {
+      ['+'] = paste,
+      ['*'] = paste,
+    },
+  }
+end
+
 -- [[ Configure and install plugins ]]
 --
 --  To check the current status of your plugins, run
@@ -998,15 +1019,6 @@ require('lazy').setup({
       -- …etc.
     },
     version = '^1.0.0', -- optional: only update when a new 1.x version is released
-  },
-
-  {
-    'ojroques/nvim-osc52',
-    config = function()
-      vim.keymap.set('n', '<leader>c', require('osc52').copy_operator, { expr = true })
-      vim.keymap.set('n', '<leader>cc', '<leader>c_', { remap = true })
-      vim.keymap.set('v', '<leader>c', require('osc52').copy_visual)
-    end,
   },
 
   {
