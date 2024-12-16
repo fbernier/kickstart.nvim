@@ -712,10 +712,15 @@ require('lazy').setup({
       --  - settings (table): Override the default settings passed when initializing the server.
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
       local servers = {
-        -- clangd = {},
+        clangd = {},
         gopls = {},
+        bashls = {},
         -- pyright = {},
         rust_analyzer = {},
+        ruby_lsp = {
+          mason = false,
+          cmd = { vim.fn.expand '~/.asdf/shims/ruby-lsp' },
+        },
         -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
         --
         -- Some languages (like typescript) have entire language plugins that can be useful:
@@ -739,6 +744,7 @@ require('lazy').setup({
             },
           },
         },
+        typst_lsp = {},
       }
 
       -- Ensure the servers and tools above are installed
@@ -809,6 +815,7 @@ require('lazy').setup({
       end,
       formatters_by_ft = {
         lua = { 'stylua' },
+        ruby = { 'rubyfmt' },
         -- Conform can also run multiple formatters sequentially
         -- python = { "isort", "black" },
         --
@@ -1105,11 +1112,15 @@ require('lazy').setup({
     -- Optional dependency
     dependencies = { 'hrsh7th/nvim-cmp' },
     config = function()
-      require('nvim-autopairs').setup {}
+      local npairs = require 'nvim-autopairs'
+      npairs.setup {}
       -- If you want to automatically add `(` after selecting a function or method
       local cmp_autopairs = require 'nvim-autopairs.completion.cmp'
       local cmp = require 'cmp'
       cmp.event:on('confirm_done', cmp_autopairs.on_confirm_done())
+
+      npairs.add_rules(require 'nvim-autopairs.rules.endwise-lua')
+      npairs.add_rules(require 'nvim-autopairs.rules.endwise-ruby')
     end,
   },
 
