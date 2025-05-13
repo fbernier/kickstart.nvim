@@ -520,7 +520,7 @@ require('lazy').setup({
       'saghen/blink.cmp',
       {
         'mrcjkb/rustaceanvim',
-        version = '^4', -- Recommended
+        version = '^6', -- Recommended
         ft = { 'rust' },
       },
     },
