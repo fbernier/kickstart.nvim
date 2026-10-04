@@ -99,7 +99,7 @@ do
   vim.g.maplocalleader = ' '
 
   -- Set to true if you have a Nerd Font installed and selected in the terminal
-  vim.g.have_nerd_font = false
+  vim.g.have_nerd_font = true
 
   -- [[ Setting options ]]
   --  See `:help vim.o`
@@ -197,6 +197,15 @@ do
     virtual_text = true, -- Text shows up at the end of the line
     virtual_lines = false, -- Text shows up underneath the line, with virtual lines
 
+    signs = vim.g.have_nerd_font and {
+      text = {
+        [vim.diagnostic.severity.ERROR] = '',
+        [vim.diagnostic.severity.WARN] = '',
+        [vim.diagnostic.severity.INFO] = '',
+        [vim.diagnostic.severity.HINT] = '',
+      },
+    } or true,
+
     -- Auto open the float, so you can easily read the errors when jumping with `[d` and `]d`
     jump = {
       on_jump = function(_, bufnr)
@@ -233,6 +242,21 @@ do
   vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right window' })
   vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
   vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
+
+  vim.keymap.set('n', ';', ':', { desc = 'Command-line' })
+  vim.keymap.set('n', '<leader><tab>', '<C-^>', { desc = 'Alternate buffer' })
+
+  -- Over SSH, copy through the terminal via OSC 52. Paste stays local: OSC 52 reads are
+  -- blocked or prompt in most terminals and would stall `p` until they time out.
+  if vim.env.SSH_TTY then
+    local osc52 = require 'vim.ui.clipboard.osc52'
+    local function paste() return { vim.fn.getreg('"', 1, true), vim.fn.getregtype '"' } end
+    vim.g.clipboard = {
+      name = 'OSC 52 (copy only)',
+      copy = { ['+'] = osc52.copy '+', ['*'] = osc52.copy '*' },
+      paste = { ['+'] = paste, ['*'] = paste },
+    }
+  end
 
   -- NOTE: Some terminals have colliding keymaps or are not able to send distinct keycodes
   -- vim.keymap.set("n", "<C-S-h>", "<C-w>H", { desc = "Move window to the left" })
@@ -562,7 +586,12 @@ do
   vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = '[S]earch [R]esume' })
   vim.keymap.set('n', '<leader>s.', builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
   vim.keymap.set('n', '<leader>sc', builtin.commands, { desc = '[S]earch [C]ommands' })
-  vim.keymap.set('n', '<leader><leader>', builtin.buffers, { desc = '[ ] Find existing buffers' })
+  vim.keymap.set(
+    'n',
+    '<leader><leader>',
+    function() builtin.buffers { sort_mru = true, ignore_current_buffer = true } end,
+    { desc = '[ ] Find existing buffers' }
+  )
 
   -- Add Telescope-based LSP pickers when an LSP attaches to a buffer.
   -- If you later switch picker plugins, this is where to update these mappings.
@@ -733,16 +762,10 @@ do
   --  See `:help lsp-config` for information about keys and how to configure
   ---@type table<string, vim.lsp.Config>
   local servers = {
-    -- clangd = {},
-    -- gopls = {},
+    gopls = {},
+    tinymist = {}, -- Typst
     -- pyright = {},
     -- tsc = {},
-    --
-    -- Some languages (like rust) have entire language plugins that can be useful:
-    --    https://github.com/mrcjkb/rustaceanvim
-    --
-    -- But for many setups, the LSP (`rust_analyzer`) will work just fine
-    -- rust_analyzer = {},
 
     stylua = {}, -- Used to format Lua code
 
@@ -779,6 +802,16 @@ do
     },
   }
 
+  -- Servers that come from the OS package manager or a language version manager, not Mason.
+  -- rust-analyzer is deliberately absent: rustaceanvim owns it (lua/custom/plugins/rust.lua) and
+  -- runs the rustup proxy so it always matches the project's pinned toolchain.
+  ---@type table<string, vim.lsp.Config>
+  local system_servers = {
+    clangd = {},
+    bashls = {},
+    ruby_lsp = { cmd = { vim.fs.joinpath(vim.env.HOME, '.asdf', 'shims', 'ruby-lsp') } },
+  }
+
   vim.pack.add {
     gh 'neovim/nvim-lspconfig',
     gh 'mason-org/mason.nvim',
@@ -787,7 +820,8 @@ do
   }
 
   -- Automatically install LSPs and related tools to stdpath for Neovim
-  require('mason').setup {}
+  -- Append, not prepend: toolchain binaries on $PATH (rustup, system LLVM, asdf) win over stale Mason copies.
+  require('mason').setup { PATH = 'append' }
 
   -- Translates between nvim-lspconfig server names and mason.nvim package names (e.g. lua_ls <-> lua-language-server)
   require('mason-lspconfig').setup {
@@ -808,7 +842,7 @@ do
 
   require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
-  for name, server in pairs(servers) do
+  for name, server in pairs(vim.tbl_extend('error', servers, system_servers)) do
     vim.lsp.config(name, server)
     vim.lsp.enable(name)
   end
@@ -824,15 +858,12 @@ do
   require('conform').setup {
     notify_on_error = false,
     format_on_save = function(bufnr)
-      -- You can specify filetypes to autoformat on save here:
-      local enabled_filetypes = {
-        -- lua = true,
-        -- python = true,
-      }
-      if enabled_filetypes[vim.bo[bufnr].filetype] then
-        return { timeout_ms = 500 }
-      else
+      -- Format on save everywhere except languages without one canonical style.
+      local disabled_filetypes = { c = true, cpp = true, sh = true }
+      if disabled_filetypes[vim.bo[bufnr].filetype] then
         return nil
+      else
+        return { timeout_ms = 500 }
       end
     end,
     default_format_opts = {
@@ -840,7 +871,7 @@ do
     },
     -- You can also specify external formatters in here.
     formatters_by_ft = {
-      -- rust = { 'rustfmt' },
+      ruby = { 'rubyfmt' },
       -- Conform can also run multiple formatters sequentially
       -- python = { "isort", "black" },
       --
@@ -927,7 +958,7 @@ do
     -- the rust implementation via `'prefer_rust_with_warning'`
     --
     -- See `:help blink-cmp-config-fuzzy` for more information
-    fuzzy = { implementation = 'lua' },
+    fuzzy = { implementation = 'prefer_rust_with_warning' },
 
     -- Shows a signature help window while you type arguments for a function
     signature = { enabled = true },
@@ -948,7 +979,7 @@ do
   vim.pack.add { { src = gh 'nvim-treesitter/nvim-treesitter', version = 'main' } }
 
   -- Ensure basic parsers are installed
-  local parsers = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' }
+  local parsers = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'rust', 'toml', 'vim', 'vimdoc' }
   require('nvim-treesitter').install(parsers)
 
   ---@param buf integer
@@ -1023,7 +1054,7 @@ do
   -- NOTE: You can add your own plugins, configuration, etc. in `lua/custom/plugins/*.lua`.
   --
   -- For independent modules, uncomment the convenience loader:
-  -- require 'custom.plugins'
+  require 'custom.plugins'
   --
   -- `custom.plugins` automatically loads files from that directory, but their
   -- order is unspecified. If plugins depend on each other, keep them in the same
