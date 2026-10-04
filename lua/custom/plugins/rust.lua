@@ -2,9 +2,30 @@
 -- or every buffer gets two clients with duplicated diagnostics.
 -- https://github.com/mrcjkb/rustaceanvim
 
+-- rust-analyzer from the rustup *default* toolchain, resolved once. The `rust-analyzer` rustup proxy
+-- follows each project's rust-toolchain.toml, and pinned toolchains rarely list the component, so
+-- the proxy exits and the buffer never gets a client. The project's toolchain still does the work:
+-- RA runs cargo/rustc in the project dir (honouring the override) and loads proc macros through
+-- that toolchain's own rust-analyzer-proc-macro-srv.
+local rust_analyzer
+local function rust_analyzer_path()
+  if rust_analyzer then return rust_analyzer end
+  rust_analyzer = 'rust-analyzer' -- non-rustup installs: whatever is on $PATH
+  if vim.fn.executable 'rustup' == 1 then
+    local default = vim.system({ 'rustup', 'default' }, { text = true }):wait()
+    local toolchain = default.code == 0 and default.stdout:match '^(%S+)'
+    if toolchain then
+      local which = vim.system({ 'rustup', 'which', '--toolchain', toolchain, 'rust-analyzer' }, { text = true }):wait()
+      if which.code == 0 then rust_analyzer = vim.trim(which.stdout) end
+    end
+  end
+  return rust_analyzer
+end
+
 ---@type rustaceanvim.Opts
 vim.g.rustaceanvim = {
   server = {
+    cmd = function() return { rust_analyzer_path(), '--log-file', require('rustaceanvim.config.internal').server.logfile } end,
     on_attach = function(_, bufnr)
       local function map(lhs, rhs, desc, mode) vim.keymap.set(mode or 'n', lhs, rhs, { buffer = bufnr, desc = 'Rust: ' .. desc }) end
       map('K', function() vim.cmd.RustLsp { 'hover', 'actions' } end, 'Hover actions')

@@ -735,7 +735,7 @@ do
 
   -- Servers that come from the OS package manager or a language version manager, not Mason.
   -- rust-analyzer is deliberately absent: rustaceanvim owns it (lua/custom/plugins/rust.lua) and
-  -- runs the rustup proxy so it always matches the project's pinned toolchain.
+  -- runs it from the rustup default toolchain.
   ---@type table<string, vim.lsp.Config>
   local system_servers = {
     clangd = {},
