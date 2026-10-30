@@ -246,9 +246,11 @@ do
   vim.keymap.set('n', ';', ':', { desc = 'Command-line' })
   vim.keymap.set('n', '<leader><tab>', '<C-^>', { desc = 'Alternate buffer' })
 
-  -- Over SSH, copy through the terminal via OSC 52. Paste stays local: OSC 52 reads are
-  -- blocked or prompt in most terminals and would stall `p` until they time out.
-  if vim.env.SSH_TTY then
+  -- Over SSH or inside herdr, copy through the terminal via OSC 52: herdr forwards it to the
+  -- attached client, which may be on another machine. herdr panes carry no SSH_TTY even when
+  -- the client came in over SSH. Paste stays local: OSC 52 reads are blocked or prompt in most
+  -- terminals and would stall `p` until they time out.
+  if vim.env.SSH_TTY or vim.env.HERDR_ENV then
     local osc52 = require 'vim.ui.clipboard.osc52'
     local function paste() return { vim.fn.getreg('"', 1, true), vim.fn.getregtype '"' } end
     vim.g.clipboard = {
